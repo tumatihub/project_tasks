@@ -1,0 +1,37 @@
+[gd_scene load_steps=2 format=3 uid="uid://bxkycdtpspnkq"]
+
+[ext_resource type="Script" path="res://scenes/UI/action_row.gd" id="1_hf44f"]
+
+[node name="ActionRow" type="MarginContainer" node_paths=PackedStringArray("name_label", "type_label", "coins_label")]
+anchors_preset = 10
+anchor_right = 1.0
+grow_horizontal = 2
+size_flags_horizontal = 3
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+script = ExtResource("1_hf44f")
+name_label = NodePath("HBoxContainer/Name")
+type_label = NodePath("HBoxContainer/Type")
+coins_label = NodePath("HBoxContainer/Coins")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="Name" type="Label" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 3.0
+text = "Action name"
+
+[node name="Type" type="Label" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Type"
+
+[node name="Coins" type="Label" parent="HBoxContainer"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+text = "999"
+horizontal_alignment = 2

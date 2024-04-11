@@ -1,0 +1,39 @@
+[gd_scene load_steps=2 format=3 uid="uid://dmdva8g0d77wl"]
+
+[ext_resource type="Script" path="res://scenes/UI/login_panel.gd" id="1_imo1e"]
+
+[node name="LoginPanel" type="PanelContainer" node_paths=PackedStringArray("login_button", "secret_input")]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_imo1e")
+login_button = NodePath("CenterContainer/VBoxContainer/LoginButton")
+secret_input = NodePath("CenterContainer/VBoxContainer/HBoxContainer/SecretInput")
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer"]
+layout_mode = 2
+theme_override_constants/separation = 35
+
+[node name="HBoxContainer" type="HBoxContainer" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Label" type="Label" parent="CenterContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "Header secret:"
+
+[node name="SecretInput" type="LineEdit" parent="CenterContainer/VBoxContainer/HBoxContainer"]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+
+[node name="LoginButton" type="Button" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Login"
+
+[connection signal="pressed" from="CenterContainer/VBoxContainer/LoginButton" to="." method="_on_login_button_pressed"]

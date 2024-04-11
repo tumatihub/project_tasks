@@ -1,0 +1,18 @@
+[gd_scene load_steps=3 format=3 uid="uid://blu54rxc7lpbw"]
+
+[ext_resource type="PackedScene" uid="uid://buotm5o31ugh4" path="res://scenes/UI/action_panel.tscn" id="1_lob3y"]
+[ext_resource type="PackedScene" uid="uid://dmdva8g0d77wl" path="res://scenes/UI/login_panel.tscn" id="1_oyl41"]
+
+[node name="TabContainer" type="TabContainer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="LoginPanel" parent="." instance=ExtResource("1_oyl41")]
+layout_mode = 2
+
+[node name="Coins" parent="." instance=ExtResource("1_lob3y")]
+visible = false
+layout_mode = 2

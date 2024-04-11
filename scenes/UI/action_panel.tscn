@@ -1,0 +1,75 @@
+[gd_scene load_steps=3 format=3 uid="uid://buotm5o31ugh4"]
+
+[ext_resource type="PackedScene" uid="uid://bxkycdtpspnkq" path="res://scenes/UI/action_row.tscn" id="1_4tmne"]
+[ext_resource type="Script" path="res://scenes/UI/action_panel.gd" id="1_uc2x6"]
+
+[node name="ActionPanel" type="PanelContainer" node_paths=PackedStringArray("action_container", "refresh_button", "collect_button", "coins_label", "bonus_label")]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_uc2x6")
+action_row_scene = ExtResource("1_4tmne")
+action_container = NodePath("VBoxContainer/ScrollContainer/ActionContainer")
+refresh_button = NodePath("VBoxContainer/Footer/MarginContainer/HBoxContainer/RefreshButton")
+collect_button = NodePath("VBoxContainer/Footer/MarginContainer/HBoxContainer/CollectButton")
+coins_label = NodePath("VBoxContainer/Footer/MarginContainer/HBoxContainer/Coins")
+bonus_label = NodePath("VBoxContainer/Footer/MarginContainer/HBoxContainer/Bonus")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="ActionRowHeader" parent="VBoxContainer/PanelContainer" instance=ExtResource("1_4tmne")]
+layout_mode = 2
+
+[node name="Coins" parent="VBoxContainer/PanelContainer/ActionRowHeader/HBoxContainer" index="2"]
+text = "Coins"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ActionContainer" type="VBoxContainer" parent="VBoxContainer/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="Footer" type="MarginContainer" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="VBoxContainer/Footer"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer/Footer/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="RefreshButton" type="Button" parent="VBoxContainer/Footer/MarginContainer/HBoxContainer"]
+layout_mode = 2
+text = "Refresh"
+
+[node name="Control" type="Control" parent="VBoxContainer/Footer/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Coins" type="Label" parent="VBoxContainer/Footer/MarginContainer/HBoxContainer"]
+layout_mode = 2
+text = "Coins: 999"
+
+[node name="Bonus" type="Label" parent="VBoxContainer/Footer/MarginContainer/HBoxContainer"]
+layout_mode = 2
+text = "Bonus: 99"
+
+[node name="CollectButton" type="Button" parent="VBoxContainer/Footer/MarginContainer/HBoxContainer"]
+layout_mode = 2
+text = "Collect"
+
+[editable path="VBoxContainer/PanelContainer/ActionRowHeader"]
