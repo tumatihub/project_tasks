@@ -11,6 +11,7 @@ config_version=5
 [application]
 
 config/name="Project Tasks"
+run/main_scene="res://scenes/UI/tab_container.tscn"
 config/features=PackedStringArray("4.2", "Forward Plus")
 config/icon="res://icon.svg"
 

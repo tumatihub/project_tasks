@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://scenes/UI/action_row.gd" id="1_hf44f"]
 
-[node name="ActionRow" type="MarginContainer" node_paths=PackedStringArray("name_label", "type_label", "coins_label")]
+[node name="ActionRow" type="MarginContainer" node_paths=PackedStringArray("name_label", "type_label", "coins_label", "hbox")]
 anchors_preset = 10
 anchor_right = 1.0
 grow_horizontal = 2
@@ -15,6 +15,8 @@ script = ExtResource("1_hf44f")
 name_label = NodePath("HBoxContainer/Name")
 type_label = NodePath("HBoxContainer/Type")
 coins_label = NodePath("HBoxContainer/Coins")
+hide_color = Color(0.215686, 0.215686, 0.215686, 1)
+hbox = NodePath("HBoxContainer")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="."]
 layout_mode = 2

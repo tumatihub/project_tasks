@@ -9,6 +9,8 @@ const ACTION_DB_TITLE = "Action Database"
 const REWARDS_DB_TITLE = "Rewards"
 const EXP_REWARDS_DB_TITLE = "Exp. Rewards"
 
+const ACTION_TYPE_HABIT = "Habit"
+
 signal updated_actions_to_collect
 signal all_actions_collected
 signal reward_updated
@@ -24,6 +26,7 @@ var end_date: String
 var reward_database_id: String
 var actions_database_id: String
 var exp_reward_database_id: String
+var collect_habits: bool = false
 
 func login(secret: String) -> bool:
 	headers = [
@@ -69,6 +72,7 @@ func login(secret: String) -> bool:
 	return true
 
 func update_actions_to_collect() -> void:
+	actions_to_collect.clear()
 	var data := {
 		"filter": {
 			"and": [
@@ -114,7 +118,6 @@ func _on_request_completed(result, response_code, headers, body: PackedByteArray
 	
 	var total_coins = 0
 	var total_bonus = 0
-	actions_to_collect.clear()
 	
 	for r in results:
 		var action := {
@@ -146,6 +149,8 @@ func _on_request_completed(result, response_code, headers, body: PackedByteArray
 
 func collect_all_actions() -> void:
 	for action in actions_to_collect:
+		if action["type"] == ACTION_TYPE_HABIT and !collect_habits:
+			continue
 		await collect_action(action)
 	all_actions_collected.emit()
 	await create_reward()
@@ -239,10 +244,14 @@ func create_new_reward():
 func get_total_coins() -> int:
 	var total_coins := 0
 	for action in actions_to_collect:
+		if action["type"] == ACTION_TYPE_HABIT and !collect_habits:
+			continue
 		total_coins += action["coins"]
 	return total_coins
 
 func get_total_bonus() -> int:
+	if !collect_habits:
+		return 0
 	var total_bonus := 0
 	for action in actions_to_collect:
 		total_bonus += action["habit_bonus"]

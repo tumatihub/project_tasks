@@ -3,7 +3,7 @@
 [ext_resource type="PackedScene" uid="uid://bxkycdtpspnkq" path="res://scenes/UI/action_row.tscn" id="1_4tmne"]
 [ext_resource type="Script" path="res://scenes/UI/action_panel.gd" id="1_uc2x6"]
 
-[node name="ActionPanel" type="PanelContainer" node_paths=PackedStringArray("action_container", "refresh_button", "collect_button", "coins_label", "bonus_label")]
+[node name="ActionPanel" type="PanelContainer" node_paths=PackedStringArray("action_container", "refresh_button", "collect_button", "coins_label", "bonus_label", "collect_habits_checkbox")]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -16,6 +16,7 @@ refresh_button = NodePath("VBoxContainer/Footer/MarginContainer/HBoxContainer/Re
 collect_button = NodePath("VBoxContainer/Footer/MarginContainer/HBoxContainer/CollectButton")
 coins_label = NodePath("VBoxContainer/Footer/MarginContainer/HBoxContainer/Coins")
 bonus_label = NodePath("VBoxContainer/Footer/MarginContainer/HBoxContainer/Bonus")
+collect_habits_checkbox = NodePath("VBoxContainer/Footer/MarginContainer/HBoxContainer/CheckBox")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
 layout_mode = 2
@@ -55,6 +56,10 @@ theme_override_constants/separation = 20
 [node name="RefreshButton" type="Button" parent="VBoxContainer/Footer/MarginContainer/HBoxContainer"]
 layout_mode = 2
 text = "Refresh"
+
+[node name="CheckBox" type="CheckBox" parent="VBoxContainer/Footer/MarginContainer/HBoxContainer"]
+layout_mode = 2
+text = "Collect habits"
 
 [node name="Control" type="Control" parent="VBoxContainer/Footer/MarginContainer/HBoxContainer"]
 layout_mode = 2
