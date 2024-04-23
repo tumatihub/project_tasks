@@ -1,0 +1,43 @@
+[gd_scene load_steps=2 format=3 uid="uid://pmxptim3drri"]
+
+[ext_resource type="Script" path="res://scenes/UI/xp_row.gd" id="1_tw21e"]
+
+[node name="XPRow" type="MarginContainer" node_paths=PackedStringArray("name_label", "type_label", "aof_label", "xp_label")]
+anchors_preset = 10
+anchor_right = 1.0
+grow_horizontal = 2
+size_flags_horizontal = 3
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+script = ExtResource("1_tw21e")
+name_label = NodePath("HBoxContainer/Name")
+type_label = NodePath("HBoxContainer/Type")
+aof_label = NodePath("HBoxContainer/AOF")
+xp_label = NodePath("HBoxContainer/XP")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="Name" type="Label" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 3.0
+text = "Name"
+
+[node name="Type" type="Label" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Project/Objective"
+
+[node name="AOF" type="Label" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Area of Focus"
+
+[node name="XP" type="Label" parent="HBoxContainer"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+text = "999"
+horizontal_alignment = 2

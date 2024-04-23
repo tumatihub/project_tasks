@@ -8,11 +8,22 @@ const SEARCH_ENDPOINT = "/search"
 const ACTION_DB_TITLE = "Action Database"
 const REWARDS_DB_TITLE = "Rewards"
 const EXP_REWARDS_DB_TITLE = "Exp. Rewards"
+const PROJECT_DB_TITLE = "Project Database"
+const OBJECTIVE_DB_TITLE = "Objectives"
+const WALLET_DB_TITLE = "Wallet"
+const EXP_CALCULATOR_DB_TITLE = "Exp Calculator"
+const CALCULATOR_DB_TITLE = "Calculator"
 
 const ACTION_TYPE_HABIT = "Habit"
+const PROJECT_SRC_NAME = "Project"
+const OBJECTIVE_SRC_NAME = "Objective"
 
 signal updated_actions_to_collect
+signal updated_projects_to_collect
+signal updated_objectives_to_collect
+signal updated_xp_to_collect
 signal all_actions_collected
+signal all_xp_collected
 signal reward_updated
 signal logged_in
 
@@ -21,11 +32,23 @@ var is_logged_in: bool:
 	get: return headers.size() > 0
 
 var actions_to_collect: Array[Dictionary]
+var projects_to_collect: Array[Dictionary]
+var objectives_to_collect: Array[Dictionary]
 var start_date: String
 var end_date: String
+var wallet_database_id: String
 var reward_database_id: String
 var actions_database_id: String
 var exp_reward_database_id: String
+var exp_calculator_database_id: String
+var exp_calculator_id: String
+var calculator_database_id: String
+var calculator_id: String
+var wallet_id: String
+var project_src_opt: Dictionary
+var objective_src_opt: Dictionary
+var projects_database_id: String
+var objectives_database_id: String
 var collect_habits: bool = false
 
 func login(secret: String) -> bool:
@@ -35,7 +58,7 @@ func login(secret: String) -> bool:
 		"Notion-Version: 2022-06-28"
 	]
 	var data = {
-		"query": "action rewards",
+		"query": "action rewards project objectives wallet calculator",
 		"filter": {
 			"value": "database",
 			"property": "object"
@@ -60,16 +83,87 @@ func login(secret: String) -> bool:
 			reward_database_id = db["id"]
 		elif db["title"][0]["plain_text"] == EXP_REWARDS_DB_TITLE:
 			exp_reward_database_id = db["id"]
+			for opt in db["properties"]["Source Of Exp."]["select"]["options"]:
+				if opt["name"] == "Project":
+					project_src_opt["name"] = opt["name"]
+					project_src_opt["id"] = opt["id"]
+					project_src_opt["color"] = opt["color"]
+					project_src_opt["description"] = opt["description"]
+				if opt["name"] == "Objective":
+					objective_src_opt["name"] = opt["name"]
+					objective_src_opt["id"] = opt["id"]
+					objective_src_opt["color"] = opt["color"]
+					objective_src_opt["description"] = opt["description"]
+		elif db["title"][0]["plain_text"] == PROJECT_DB_TITLE:
+			projects_database_id = db["id"]
+		elif db["title"][0]["plain_text"] == OBJECTIVE_DB_TITLE:
+			objectives_database_id = db["id"]
+		elif db["title"][0]["plain_text"] == WALLET_DB_TITLE:
+			wallet_database_id = db["id"]
+		elif db["title"][0]["plain_text"] == EXP_CALCULATOR_DB_TITLE:
+			exp_calculator_database_id = db["id"]
+		elif db["title"][0]["plain_text"] == CALCULATOR_DB_TITLE:
+			calculator_database_id = db["id"]
 	
-	if actions_database_id == null or \
-			reward_database_id == null or \
-			exp_reward_database_id == null:
-		printerr("Something is wrong with Notion template")
+	if actions_database_id.is_empty() or \
+			reward_database_id.is_empty() or \
+			exp_reward_database_id.is_empty() or \
+			projects_database_id.is_empty() or \
+			objectives_database_id.is_empty() or \
+			wallet_database_id.is_empty() or \
+			exp_calculator_database_id.is_empty() or \
+			calculator_database_id.is_empty():
+		print("Something is wrong with Notion template")
 		headers = []
 		return false
+	wallet_id = await get_wallet_id()
+	exp_calculator_id = await get_exp_calculator_id()
+	await update_this_week_period()
+	
 	http.queue_free()
 	logged_in.emit()
 	return true
+
+func update_this_week_period() -> void:
+	var url := API_URL + DB_ENDPOINT + "/" + calculator_database_id + "/query"
+	var http := HTTPRequest.new()
+	add_child(http)
+	http.request(url, headers, HTTPClient.METHOD_POST)
+	var params := await http.request_completed as Array
+	
+	var json := JSON.parse_string(params[3].get_string_from_utf8()) as Dictionary
+	var results := json["results"] as Array
+	if results.size() > 0:
+		start_date = results[0]["properties"]["StartOfWeek"]["formula"]["date"]["start"]
+		end_date = results[0]["properties"]["EndOfWeek"]["formula"]["date"]["start"]
+
+func get_exp_calculator_id() -> String:
+	var url := API_URL + DB_ENDPOINT + "/" + exp_calculator_database_id + "/query"
+	var http := HTTPRequest.new()
+	add_child(http)
+	http.request(url, headers, HTTPClient.METHOD_POST)
+	var params := await http.request_completed as Array
+	
+	var json := JSON.parse_string(params[3].get_string_from_utf8()) as Dictionary
+	var results := json["results"] as Array
+	if results.size() > 0:
+		return results[0]["id"]
+	else:
+		return ""
+
+func get_wallet_id() -> String:
+	var url := API_URL + DB_ENDPOINT + "/" + wallet_database_id + "/query"
+	var http := HTTPRequest.new()
+	add_child(http)
+	http.request(url, headers, HTTPClient.METHOD_POST)
+	var params := await http.request_completed as Array
+	
+	var json := JSON.parse_string(params[3].get_string_from_utf8()) as Dictionary
+	var results := json["results"] as Array
+	if results.size() > 0:
+		return results[0]["id"]
+	else:
+		return ""
 
 func update_actions_to_collect() -> void:
 	actions_to_collect.clear()
@@ -106,12 +200,11 @@ func _on_request_completed(result, response_code, headers, body: PackedByteArray
 	if results.size() == 0:
 		print("No actions to collect")
 		updated_actions_to_collect.emit()
+		http.queue_free()
 		return
 	
-	start_date = results[0]["properties"]["Start of Week"]["rollup"]["array"][0]["formula"]["date"]["start"]
 	var start_date_dict := Time.get_datetime_dict_from_datetime_string(start_date, false)
 	var start_date_fmt = str(start_date_dict["year"]) + "/" + str(start_date_dict["month"]) + "/" + str(start_date_dict["day"])
-	end_date = results[0]["properties"]["End of Week"]["rollup"]["array"][0]["formula"]["date"]["start"]
 	var end_date_dict := Time.get_datetime_dict_from_datetime_string(end_date, false)
 	var end_date_fmt = str(end_date_dict["year"]) + "/" + str(end_date_dict["month"]) + "/" + str(end_date_dict["day"])
 	print("Period: " + start_date_fmt + "-> " + end_date_fmt)
@@ -147,6 +240,121 @@ func _on_request_completed(result, response_code, headers, body: PackedByteArray
 	http.queue_free()
 	updated_actions_to_collect.emit()
 
+func update_xp_to_collect() -> void:
+	await update_projects_to_collect()
+	await update_objectives_to_collect()
+	updated_xp_to_collect.emit()
+
+func update_projects_to_collect() -> void:
+	projects_to_collect.clear()
+	var data := {
+		"filter": {
+			"and": [
+				{
+					"property" : "Completed",
+					"checkbox" : {
+						"equals" : true
+					}
+				},
+				{
+					"property" : "Collected",
+					"checkbox" : {
+						"equals" : false
+					}
+				},
+			]
+		}
+	}
+	
+	var json_string = JSON.stringify(data)
+	var http := HTTPRequest.new()
+	add_child(http)
+	var url = API_URL + DB_ENDPOINT + "/"  + projects_database_id + "/query"
+	http.request(url, headers, HTTPClient.METHOD_POST, json_string)
+	var params = await http.request_completed
+	var json = JSON.parse_string(params[3].get_string_from_utf8())
+	
+	var results := json["results"] as Array
+	if results.size() == 0:
+		print("No projects to collect")
+		updated_projects_to_collect.emit()
+		http.queue_free()
+		return
+	
+	for r in results:
+		var project := {
+			"id": r["id"],
+			"exp": r["properties"]["Exp."]["formula"]["number"],
+			"aof": r["properties"]["Area of Focus"]["formula"]["string"],
+			"name": r["properties"]["Name"]["title"][0]["text"]["content"],
+			"src_xp_name": project_src_opt["name"],
+			"src_xp_id": project_src_opt["id"]
+		}
+		var aof_rel := r["properties"]["Area of Focus (Relation)"]["relation"] as Array
+		if aof_rel.size() > 0:
+			project["aof_id"] = aof_rel[0]["id"]
+		else:
+			project["aof_id"] = null
+		projects_to_collect.append(project)
+	
+	updated_projects_to_collect.emit()
+	http.queue_free()
+
+func update_objectives_to_collect() -> void:
+	objectives_to_collect.clear()
+	var data := {
+		"filter": {
+			"and": [
+				{
+					"property" : "Completed",
+					"checkbox" : {
+						"equals" : true
+					}
+				},
+				{
+					"property" : "Collected",
+					"checkbox" : {
+						"equals" : false
+					}
+				},
+			]
+		}
+	}
+	
+	var json_string = JSON.stringify(data)
+	var http := HTTPRequest.new()
+	add_child(http)
+	var url = API_URL + DB_ENDPOINT + "/"  + objectives_database_id + "/query"
+	http.request(url, headers, HTTPClient.METHOD_POST, json_string)
+	var params = await http.request_completed
+	var json = JSON.parse_string(params[3].get_string_from_utf8())
+	
+	var results := json["results"] as Array
+	if results.size() == 0:
+		print("No Objectives to collect")
+		updated_objectives_to_collect.emit()
+		http.queue_free()
+		return
+	
+	for r in results:
+		var objective := {
+			"id": r["id"],
+			"exp": r["properties"]["CalculatedExp"]["formula"]["number"],
+			"aof": r["properties"]["Area of Focus"]["formula"]["string"],
+			"name": r["properties"]["Name"]["title"][0]["text"]["content"],
+			"src_xp_name": objective_src_opt["name"],
+			"src_xp_id": objective_src_opt["id"]
+		}
+		var aof_rel := r["properties"]["Area of Focus (Relation)"]["relation"] as Array
+		if aof_rel.size() > 0:
+			objective["aof_id"] = aof_rel[0]["id"]
+		else:
+			objective["aof_id"] = null
+		objectives_to_collect.append(objective)
+	
+	updated_projects_to_collect.emit()
+	http.queue_free()
+
 func collect_all_actions() -> void:
 	for action in actions_to_collect:
 		if action["type"] == ACTION_TYPE_HABIT and !collect_habits:
@@ -169,6 +377,159 @@ func collect_action(action: Dictionary):
 	var params = await http.request_completed
 	print(params[1])
 	http.queue_free()
+
+func collect_all_xp() -> void:
+	for project in projects_to_collect:
+		await collect_project(project)
+	for objective in objectives_to_collect:
+		await collect_objective(objective)
+	all_xp_collected.emit()
+	await create_exp_reward()
+
+func collect_project(project: Dictionary) -> void:
+	var url = API_URL + PAGES_ENDPOINT + "/" + project["id"]
+	var http := HTTPRequest.new()
+	add_child(http)
+	var data = {
+		"properties": {
+			"Collected": { "checkbox": true }
+		}
+	}
+	print("Collecting project: " + project["name"] + " ... ")
+	var err = http.request(url, headers, HTTPClient.METHOD_PATCH, JSON.stringify(data))
+	var params = await http.request_completed
+	print(params[1])
+	http.queue_free()
+
+func collect_objective(objective: Dictionary) -> void:
+	var url = API_URL + PAGES_ENDPOINT + "/" + objective["id"]
+	var http := HTTPRequest.new()
+	add_child(http)
+	var data = {
+		"properties": {
+			"Collected": { "checkbox": true }
+		}
+	}
+	print("Collecting objective: " + objective["name"] + " ... ")
+	var err = http.request(url, headers, HTTPClient.METHOD_PATCH, JSON.stringify(data))
+	var params = await http.request_completed
+	print(params[1])
+	http.queue_free()
+
+func create_exp_reward():
+	var this_week_exp_rewards := await get_this_week_exp_rewards()
+	var xp_rewards: Array[Dictionary] = []
+	var xp_to_collect: Array
+	xp_to_collect.append_array(projects_to_collect)
+	xp_to_collect.append_array(objectives_to_collect)
+	for x in xp_to_collect:
+		var found := false
+		for item in xp_rewards:
+			if item["aof_id"] == x["aof_id"] and item["src_xp_name"] == x["src_xp_name"]:
+				item["exp"] += x["exp"]
+				found = true
+				continue
+		if not found:
+			var new_item = {
+				"aof_id": x["aof_id"],
+				"exp": x["exp"],
+				"src_xp_name": x["src_xp_name"],
+				"src_xp_id": x["src_xp_id"]
+			}
+			xp_rewards.append(new_item)
+	
+	for x in xp_rewards:
+		var found := false
+		for r in this_week_exp_rewards:
+			if x["aof_id"] == r["aof_id"] and x["src_xp_name"] == r["src_xp_name"]:
+				found = true
+				update_exp_reward(x, r)
+				continue
+		if not found and x["aof_id"] != null:
+			create_new_exp_reward(x)
+
+func get_this_week_exp_rewards() -> Array[Dictionary]:
+	var url := API_URL + DB_ENDPOINT + "/" + exp_reward_database_id + "/query"
+	var http := HTTPRequest.new()
+	add_child(http)
+	var data = {
+		"filter": {
+			"property" : "IsThisWeek",
+			"checkbox" : {
+				"equals" : true
+			}
+		}
+	}
+	var json_string := JSON.stringify(data)
+	http.request(url, headers, HTTPClient.METHOD_POST, json_string)
+	var params := await http.request_completed as Array
+	
+	var json := JSON.parse_string(params[3].get_string_from_utf8()) as Dictionary
+	var results := json["results"] as Array
+	var rewards: Array[Dictionary] = []
+	if results.size() > 0:
+		for r in results:
+			var reward = { 
+				"aof_id": r["properties"]["Area Of Focus"]["relation"][0]["id"],
+				"exp": r["properties"]["Exp."]["number"],
+				"src_xp_id": r["properties"]["Source Of Exp."]["select"]["id"],
+				"src_xp_name": r["properties"]["Source Of Exp."]["select"]["name"],
+				"id": r["id"]
+			}
+			rewards.append(reward)
+	return rewards
+
+func update_exp_reward(reward: Dictionary, this_week_reward: Dictionary) -> void:
+	var url = API_URL + PAGES_ENDPOINT + "/" + this_week_reward["id"]
+	var http := HTTPRequest.new()
+	add_child(http)
+	var data = {
+		"properties": {
+			"Exp.": this_week_reward["exp"] + reward["exp"]
+		}
+	}
+	print("Updating exp reward ... ")
+	var err = http.request(url, headers, HTTPClient.METHOD_PATCH, JSON.stringify(data))
+	var params = await http.request_completed
+	print(params[1])
+
+func create_new_exp_reward(reward: Dictionary) -> void:
+	var url = API_URL + PAGES_ENDPOINT
+	var http := HTTPRequest.new()
+	add_child(http)
+	var exp_src: Dictionary
+	var data = {
+		"parent": { "database_id": exp_reward_database_id },
+		"properties": {
+			"Area Of Focus": {
+				"relation": [
+					{ "id": reward["aof_id"] }
+				]
+			},
+			"Period": {
+				"date": {
+					"start" : start_date,
+					"end": end_date,
+				}
+			},
+			"Source Of Exp.": {
+				"select": { "id": reward["src_xp_id"]}
+			},
+			"Exp.": {
+				"number": reward["exp"]
+			},
+			"Exp Calculator": {
+				"relation": [
+					{ "id": exp_calculator_id }
+				]
+			}
+		}
+	}
+	
+	print("Creating new exp reward ... ")
+	var err = http.request(url, headers, HTTPClient.METHOD_POST, JSON.stringify(data))
+	var params = await http.request_completed
+	print(params[1])
 
 func create_reward():
 	var this_week_reward := await get_this_week_reward()
@@ -198,7 +559,9 @@ func get_this_week_reward() -> Dictionary:
 	var json := JSON.parse_string(params[3].get_string_from_utf8()) as Dictionary
 	var results := json["results"] as Array
 	if results.size() > 0:
-		return {"id": results[0]["id"], "coins": results[0]["properties"]["Coins"]["number"] }
+		var coins = results[0]["properties"]["Coins"]["number"]
+		if coins == null: coins = 0
+		return {"id": results[0]["id"], "coins": coins}
 	else:
 		return {}
 
@@ -232,6 +595,11 @@ func create_new_reward():
 					"start" : start_date,
 					"end": end_date,
 				}
+			},
+			"Wallet": {
+				"relation": [
+					{ "id": wallet_id }
+				]
 			}
 		}
 	}
@@ -256,3 +624,15 @@ func get_total_bonus() -> int:
 	for action in actions_to_collect:
 		total_bonus += action["habit_bonus"]
 	return total_bonus
+
+func get_total_projects_xp() -> int:
+	var total_xp := 0
+	for p in projects_to_collect:
+		total_xp += p["exp"]
+	return total_xp
+
+func get_total_objectives_xp() -> int:
+	var total_xp := 0
+	for o in objectives_to_collect:
+		total_xp += o["exp"]
+	return total_xp

@@ -16,8 +16,7 @@ var collect_habits: bool:
 		return collect_habits_checkbox.is_pressed()
 
 func _ready() -> void:
-	coins_label.text = ""
-	bonus_label.text = ""
+	update_footer()
 	collect_button.set_disabled(true)
 	refresh_button.pressed.connect(_on_refresh_button_pressed)
 	collect_button.pressed.connect(_on_collect_button_pressed)
