@@ -18,6 +18,8 @@ const ACTION_TYPE_HABIT = "Habit"
 const PROJECT_SRC_NAME = "Project"
 const OBJECTIVE_SRC_NAME = "Objective"
 
+const SAVE_FILE_PATH = "user://notion_state.cfg"
+
 signal updated_actions_to_collect
 signal updated_projects_to_collect
 signal updated_objectives_to_collect
@@ -50,6 +52,14 @@ var objective_src_opt: Dictionary
 var projects_database_id: String
 var objectives_database_id: String
 var collect_habits: bool = false
+var pending_coins: int = 0
+var exp_rewards: Array[Dictionary] = []
+
+func _ready() -> void:
+	load_state()
+	print("Pending Coins: " + str(pending_coins))
+	print("Pending EXP: ")
+	print(exp_rewards)
 
 func login(secret: String) -> bool:
 	headers = [
@@ -169,19 +179,43 @@ func update_actions_to_collect() -> void:
 	actions_to_collect.clear()
 	var data := {
 		"filter": {
-			"and": [
+			"or": [
 				{
-					"property" : "Completed",
-					"checkbox" : {
-						"equals" : true
-					}
+				"and": [
+					{
+						"property" : "Completed",
+						"checkbox" : {
+							"equals" : true
+						}
+					},
+					{
+						"property" : "Collected",
+						"checkbox" : {
+							"equals" : false
+						}
+					},
+				]
 				},
 				{
-					"property" : "Collected",
-					"checkbox" : {
-						"equals" : false
+				"and": [
+					{
+						"property" : "Collected",
+						"checkbox" : {
+							"equals" : false
+						}
+					},
+					{
+						"property" : "# Done",
+						"formula": {
+							"number": { "greater_than": 0 }
+						}
+					},
+					{
+						"property" : "Action Type",
+						"select": { "equals": ACTION_TYPE_HABIT }
 					}
-				},
+				]
+				}
 			]
 		}
 	}
@@ -217,7 +251,8 @@ func _on_request_completed(result, response_code, headers, body: PackedByteArray
 			"id": r["id"],
 			"coins": r["properties"]["Total Value (coins)"]["formula"]["number"],
 			"type": r["properties"]["Action Type"]["select"]["name"],
-			"name": r["properties"]["Name"]["title"][0]["text"]["content"]
+			"name": r["properties"]["Name"]["title"][0]["text"]["content"],
+			"habit_completed_weeks": r["properties"]["Habit Completed Weeks"]["number"]
 		}
 		
 		var weekly_completed: bool = r["properties"]["WeeklyCompleted"]["formula"]["boolean"]
@@ -288,7 +323,8 @@ func update_projects_to_collect() -> void:
 			"aof": r["properties"]["Area of Focus"]["formula"]["string"],
 			"name": r["properties"]["Name"]["title"][0]["text"]["content"],
 			"src_xp_name": project_src_opt["name"],
-			"src_xp_id": project_src_opt["id"]
+			"src_xp_id": project_src_opt["id"],
+			"is_pending": false
 		}
 		var aof_rel := r["properties"]["Area of Focus (Relation)"]["relation"] as Array
 		if aof_rel.size() > 0:
@@ -343,7 +379,8 @@ func update_objectives_to_collect() -> void:
 			"aof": r["properties"]["Area of Focus"]["formula"]["string"],
 			"name": r["properties"]["Name"]["title"][0]["text"]["content"],
 			"src_xp_name": objective_src_opt["name"],
-			"src_xp_id": objective_src_opt["id"]
+			"src_xp_id": objective_src_opt["id"],
+			"is_pending": false
 		}
 		var aof_rel := r["properties"]["Area of Focus (Relation)"]["relation"] as Array
 		if aof_rel.size() > 0:
@@ -361,7 +398,8 @@ func collect_all_actions() -> void:
 			continue
 		await collect_action(action)
 	all_actions_collected.emit()
-	await create_reward()
+	if pending_coins > 0:
+		await create_reward()
 
 func collect_action(action: Dictionary):
 	var url = API_URL + PAGES_ENDPOINT + "/" + action["id"]
@@ -372,10 +410,18 @@ func collect_action(action: Dictionary):
 			"Collected": { "checkbox": true }
 		}
 	}
+	if action["type"] == ACTION_TYPE_HABIT and action["habit_bonus"] > 0:
+		data["properties"]["Habit Completed Weeks"] = { "number": action["habit_completed_weeks"] + 1 }
+	
 	print("Collecting action: " + action["name"] + " ... ")
 	var err = http.request(url, headers, HTTPClient.METHOD_PATCH, JSON.stringify(data))
 	var params = await http.request_completed
 	print(params[1])
+	var response_code = params[1]
+	if params[1] == 200:
+		pending_coins += action["coins"] + action["habit_bonus"]
+	else:
+		printerr("Error collecting action: " + action["name"])
 	http.queue_free()
 
 func collect_all_xp() -> void:
@@ -384,7 +430,8 @@ func collect_all_xp() -> void:
 	for objective in objectives_to_collect:
 		await collect_objective(objective)
 	all_xp_collected.emit()
-	await create_exp_reward()
+	if has_pending_exp():
+		await create_exp_reward()
 
 func collect_project(project: Dictionary) -> void:
 	var url = API_URL + PAGES_ENDPOINT + "/" + project["id"]
@@ -399,6 +446,11 @@ func collect_project(project: Dictionary) -> void:
 	var err = http.request(url, headers, HTTPClient.METHOD_PATCH, JSON.stringify(data))
 	var params = await http.request_completed
 	print(params[1])
+	var response_code = params[1]
+	if response_code == 200:
+		project["is_pending"] = true
+	else:
+		printerr("Error collecting project: " + project["name"])
 	http.queue_free()
 
 func collect_objective(objective: Dictionary) -> void:
@@ -414,17 +466,23 @@ func collect_objective(objective: Dictionary) -> void:
 	var err = http.request(url, headers, HTTPClient.METHOD_PATCH, JSON.stringify(data))
 	var params = await http.request_completed
 	print(params[1])
+	var response_code = params[1]
+	if response_code == 200:
+		objective["is_pending"] = true
+	else:
+		printerr("Error collecting objective: " + objective["name"])
 	http.queue_free()
 
 func create_exp_reward():
 	var this_week_exp_rewards := await get_this_week_exp_rewards()
-	var xp_rewards: Array[Dictionary] = []
-	var xp_to_collect: Array
-	xp_to_collect.append_array(projects_to_collect)
-	xp_to_collect.append_array(objectives_to_collect)
-	for x in xp_to_collect:
+	var exp_to_collect: Array
+	exp_to_collect.append_array(projects_to_collect)
+	exp_to_collect.append_array(objectives_to_collect)
+	for x in exp_to_collect:
+		if not x["is_pending"]:
+			continue
 		var found := false
-		for item in xp_rewards:
+		for item in exp_rewards:
 			if item["aof_id"] == x["aof_id"] and item["src_xp_name"] == x["src_xp_name"]:
 				item["exp"] += x["exp"]
 				found = true
@@ -434,19 +492,25 @@ func create_exp_reward():
 				"aof_id": x["aof_id"],
 				"exp": x["exp"],
 				"src_xp_name": x["src_xp_name"],
-				"src_xp_id": x["src_xp_id"]
+				"src_xp_id": x["src_xp_id"],
+				"is_pending": true
 			}
-			xp_rewards.append(new_item)
+			exp_rewards.append(new_item)
 	
-	for x in xp_rewards:
+	for x in exp_rewards:
 		var found := false
 		for r in this_week_exp_rewards:
 			if x["aof_id"] == r["aof_id"] and x["src_xp_name"] == r["src_xp_name"]:
 				found = true
-				update_exp_reward(x, r)
+				await update_exp_reward(x, r)
 				continue
 		if not found and x["aof_id"] != null:
-			create_new_exp_reward(x)
+			await create_new_exp_reward(x)
+	remove_exp_rewards_not_pending()
+	save_state()
+
+func remove_exp_rewards_not_pending() -> void:
+	exp_rewards = exp_rewards.filter(func(reward): return reward["is_pending"])
 
 func get_this_week_exp_rewards() -> Array[Dictionary]:
 	var url := API_URL + DB_ENDPOINT + "/" + exp_reward_database_id + "/query"
@@ -492,6 +556,11 @@ func update_exp_reward(reward: Dictionary, this_week_reward: Dictionary) -> void
 	var err = http.request(url, headers, HTTPClient.METHOD_PATCH, JSON.stringify(data))
 	var params = await http.request_completed
 	print(params[1])
+	var response_code = params[1]
+	if response_code == 200:
+		reward["is_pending"] = false
+	else:
+		printerr("Error updating exp reward: " + reward["id"])
 
 func create_new_exp_reward(reward: Dictionary) -> void:
 	var url = API_URL + PAGES_ENDPOINT
@@ -530,6 +599,11 @@ func create_new_exp_reward(reward: Dictionary) -> void:
 	var err = http.request(url, headers, HTTPClient.METHOD_POST, JSON.stringify(data))
 	var params = await http.request_completed
 	print(params[1])
+	var response_code = params[1]
+	if response_code == 200:
+		reward["is_pending"] = false
+	else:
+		printerr("Error creating exp reward: " + start_date + " -> " + end_date)
 
 func create_reward():
 	var this_week_reward := await get_this_week_reward()
@@ -539,6 +613,7 @@ func create_reward():
 	else:
 		await create_new_reward()
 	reward_updated.emit()
+	save_state()
 
 func get_this_week_reward() -> Dictionary:
 	var url := API_URL + DB_ENDPOINT + "/" + reward_database_id + "/query"
@@ -571,13 +646,18 @@ func update_reward(reward: Dictionary):
 	add_child(http)
 	var data = {
 		"properties": {
-			"Coins": { "number": get_total_coins() + get_total_bonus() + reward["coins"] }
+			"Coins": { "number": pending_coins + reward["coins"] }
 		}
 	}
 	print("Updating reward ... ")
 	var err = http.request(url, headers, HTTPClient.METHOD_PATCH, JSON.stringify(data))
 	var params = await http.request_completed
 	print(params[1])
+	var response_code = params[1]
+	if response_code == 200:
+		pending_coins = 0
+	else:
+		printerr("Error updating reward: " + reward["id"])
 
 func create_new_reward():
 	var url = API_URL + PAGES_ENDPOINT
@@ -588,7 +668,7 @@ func create_new_reward():
 		"parent": { "database_id": reward_database_id },
 		"properties": {
 			"Coins": {
-				"number": get_total_coins() + get_total_bonus()
+				"number": pending_coins
 			},
 			"Period": {
 				"date": {
@@ -608,6 +688,11 @@ func create_new_reward():
 	var err = http.request(url, headers, HTTPClient.METHOD_POST, JSON.stringify(data))
 	var params = await http.request_completed
 	print(params[1])
+	var response_code = params[1]
+	if response_code == 200:
+		pending_coins = 0
+	else:
+		printerr("Error creating reward: " + start_date + " -> " + end_date)
 
 func get_total_coins() -> int:
 	var total_coins := 0
@@ -636,3 +721,37 @@ func get_total_objectives_xp() -> int:
 	for o in objectives_to_collect:
 		total_xp += o["exp"]
 	return total_xp
+
+func has_pending_exp() -> bool:
+	var exp_items = []
+	exp_items.append_array(projects_to_collect)
+	exp_items.append_array(objectives_to_collect)
+	
+	for i in exp_items:
+		if i["is_pending"]:
+			return true
+	return false
+
+func save_state() -> void:
+	var save_file = FileAccess.open(SAVE_FILE_PATH, FileAccess.WRITE)
+	var data = {
+		"pending_coins": pending_coins,
+		"exp_rewards": exp_rewards
+	}
+	var json_string = JSON.stringify(data)
+	save_file.store_line(json_string)
+
+func load_state() -> void:
+	if not FileAccess.file_exists(SAVE_FILE_PATH):
+		return
+	var save_file = FileAccess.open(SAVE_FILE_PATH, FileAccess.READ)
+	var json_string = save_file.get_line()
+	var json := JSON.new()
+	var parse_result = json.parse(json_string)
+	if not parse_result == OK:
+		printerr("JSON Parse Error: ", json.get_error_message(), " in ", json_string, " at line ", json.get_error_line())
+		return
+	var data = json.get_data()
+	pending_coins = data["pending_coins"]
+	for i in data["exp_rewards"]:
+		exp_rewards.append(i)

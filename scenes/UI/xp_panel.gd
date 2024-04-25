@@ -59,6 +59,7 @@ func _on_refresh_button_pressed() -> void:
 func _on_collect_button_pressed() -> void:
 	await NotionAPI.collect_all_xp()
 	_clear_xp_container()
+	refresh_xp()
 	collect_button.set_disabled(true)
 
 func update_footer() -> void:
