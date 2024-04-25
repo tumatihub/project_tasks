@@ -1,16 +1,19 @@
-[gd_scene load_steps=2 format=3 uid="uid://dmdva8g0d77wl"]
+[gd_scene load_steps=3 format=3 uid="uid://dmdva8g0d77wl"]
 
 [ext_resource type="Script" path="res://scenes/UI/login_panel.gd" id="1_imo1e"]
+[ext_resource type="PackedScene" uid="uid://b35g3wq8w1242" path="res://scenes/UI/loading_icon.tscn" id="2_r4uxq"]
 
-[node name="LoginPanel" type="PanelContainer" node_paths=PackedStringArray("login_button", "secret_input")]
+[node name="LoginPanel" type="PanelContainer" node_paths=PackedStringArray("login_button", "logout_button", "secret_input", "loading_icon")]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_imo1e")
-login_button = NodePath("CenterContainer/VBoxContainer/LoginButton")
+login_button = NodePath("CenterContainer/VBoxContainer/HBoxLogin/LoginButton")
+logout_button = NodePath("CenterContainer/VBoxContainer/HBoxLogin/LogoutButton")
 secret_input = NodePath("CenterContainer/VBoxContainer/HBoxContainer/SecretInput")
+loading_icon = NodePath("CenterContainer/VBoxContainer/LoadingIcon")
 
 [node name="CenterContainer" type="CenterContainer" parent="."]
 layout_mode = 2
@@ -31,9 +34,24 @@ text = "Header secret:"
 custom_minimum_size = Vector2(500, 0)
 layout_mode = 2
 
-[node name="LoginButton" type="Button" parent="CenterContainer/VBoxContainer"]
+[node name="HBoxLogin" type="HBoxContainer" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 20
+
+[node name="LoginButton" type="Button" parent="CenterContainer/VBoxContainer/HBoxLogin"]
 layout_mode = 2
 size_flags_horizontal = 4
 text = "Login"
 
-[connection signal="pressed" from="CenterContainer/VBoxContainer/LoginButton" to="." method="_on_login_button_pressed"]
+[node name="LogoutButton" type="Button" parent="CenterContainer/VBoxContainer/HBoxLogin"]
+layout_mode = 2
+disabled = true
+text = "Logout"
+
+[node name="LoadingIcon" parent="CenterContainer/VBoxContainer" instance=ExtResource("2_r4uxq")]
+visible = false
+layout_mode = 2
+
+[connection signal="pressed" from="CenterContainer/VBoxContainer/HBoxLogin/LoginButton" to="." method="_on_login_button_pressed"]
+[connection signal="pressed" from="CenterContainer/VBoxContainer/HBoxLogin/LogoutButton" to="." method="_on_logout_button_pressed"]

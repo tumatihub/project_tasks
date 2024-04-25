@@ -10,6 +10,7 @@ signal collect_habits_checkbox_pressed
 @export var coins_label: Label
 @export var bonus_label: Label
 @export var collect_habits_checkbox: CheckBox
+@export var loading_icon: Control
 
 var collect_habits: bool:
 	get:
@@ -23,12 +24,14 @@ func _ready() -> void:
 	collect_habits_checkbox.pressed.connect(_on_collect_habits_checkbox_pressed)
 
 func refresh_actions() -> void:
+	loading_icon.visible = true
 	_clear_action_container()
 	NotionAPI.update_actions_to_collect()
 	await NotionAPI.updated_actions_to_collect
 	
 	if NotionAPI.actions_to_collect.size() == 0:
 		update_footer()
+		loading_icon.visible = false
 		return
 	
 	for action in NotionAPI.actions_to_collect:
@@ -37,13 +40,15 @@ func refresh_actions() -> void:
 		action_row.update(action, self)
 	
 	update_footer()
-	
+	loading_icon.visible = false
 	collect_button.set_disabled(false)
 
 func collect_actions() -> void:
+	loading_icon.visible = true
 	await NotionAPI.collect_all_actions()
 	_clear_action_container()
 	refresh_actions()
+	loading_icon.visible = false
 	collect_button.set_disabled(true)
 
 func update_footer() -> void:

@@ -1,9 +1,10 @@
-[gd_scene load_steps=3 format=3 uid="uid://byljb7yt1j4w4"]
+[gd_scene load_steps=4 format=3 uid="uid://byljb7yt1j4w4"]
 
 [ext_resource type="Script" path="res://scenes/UI/xp_panel.gd" id="1_j4dij"]
 [ext_resource type="PackedScene" uid="uid://pmxptim3drri" path="res://scenes/UI/xp_row.tscn" id="2_2tf5p"]
+[ext_resource type="PackedScene" uid="uid://b35g3wq8w1242" path="res://scenes/UI/loading_icon.tscn" id="3_nr01y"]
 
-[node name="XPPanel" type="PanelContainer" node_paths=PackedStringArray("xp_container", "refresh_button", "collect_button", "project_xp_label", "objective_xp_label")]
+[node name="XPPanel" type="PanelContainer" node_paths=PackedStringArray("xp_container", "refresh_button", "collect_button", "project_xp_label", "objective_xp_label", "loading_icon")]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -16,6 +17,7 @@ refresh_button = NodePath("VBoxContainer/Footer/MarginContainer/HBoxContainer/Re
 collect_button = NodePath("VBoxContainer/Footer/MarginContainer/HBoxContainer/CollectButton")
 project_xp_label = NodePath("VBoxContainer/Footer/MarginContainer/HBoxContainer/ProjectXP")
 objective_xp_label = NodePath("VBoxContainer/Footer/MarginContainer/HBoxContainer/ObjectiveXP")
+loading_icon = NodePath("VBoxContainer/Footer/MarginContainer/HBoxContainer/LoadingIcon")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
 layout_mode = 2
@@ -59,6 +61,11 @@ text = "Refresh"
 [node name="Control" type="Control" parent="VBoxContainer/Footer/MarginContainer/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
+
+[node name="LoadingIcon" parent="VBoxContainer/Footer/MarginContainer/HBoxContainer" instance=ExtResource("3_nr01y")]
+visible = false
+custom_minimum_size = Vector2(50, 0)
+layout_mode = 2
 
 [node name="ProjectXP" type="Label" parent="VBoxContainer/Footer/MarginContainer/HBoxContainer"]
 layout_mode = 2

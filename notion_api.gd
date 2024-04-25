@@ -28,10 +28,11 @@ signal all_actions_collected
 signal all_xp_collected
 signal reward_updated
 signal logged_in
+signal cant_log_in
 
 var headers: Array[String]
-var is_logged_in: bool:
-	get: return headers.size() > 0
+var header_secret: String
+var is_logged_in: bool = false
 
 var actions_to_collect: Array[Dictionary]
 var projects_to_collect: Array[Dictionary]
@@ -57,6 +58,7 @@ var exp_rewards: Array[Dictionary] = []
 
 func _ready() -> void:
 	load_state()
+	print("Header Secret: " + header_secret)
 	print("Pending Coins: " + str(pending_coins))
 	print("Pending EXP: ")
 	print(exp_rewards)
@@ -83,6 +85,9 @@ func login(secret: String) -> bool:
 	if params[0] != HTTPRequest.RESULT_SUCCESS or params[1] != 200:
 		printerr("Can't Login")
 		headers = []
+		header_secret = ""
+		is_logged_in = false
+		cant_log_in.emit()
 		return false
 	var json = JSON.parse_string(params[3].get_string_from_utf8())
 	var results = json["results"]
@@ -125,14 +130,25 @@ func login(secret: String) -> bool:
 			calculator_database_id.is_empty():
 		print("Something is wrong with Notion template")
 		headers = []
+		header_secret = ""
+		is_logged_in = false
+		cant_log_in.emit()
 		return false
 	wallet_id = await get_wallet_id()
 	exp_calculator_id = await get_exp_calculator_id()
 	await update_this_week_period()
 	
 	http.queue_free()
+	is_logged_in = true
+	header_secret = secret
 	logged_in.emit()
+	save_state()
 	return true
+
+func logout() -> void:
+	headers = []
+	header_secret = ""
+	save_state()
 
 func update_this_week_period() -> void:
 	var url := API_URL + DB_ENDPOINT + "/" + calculator_database_id + "/query"
@@ -230,7 +246,7 @@ func update_actions_to_collect() -> void:
 func _on_request_completed(result, response_code, headers, body: PackedByteArray, http: HTTPRequest):
 	var json = JSON.parse_string(body.get_string_from_utf8())
 	
-	var results := json["results"] as Array
+	var results := json.get("results", []) as Array
 	if results.size() == 0:
 		print("No actions to collect")
 		updated_actions_to_collect.emit()
@@ -309,7 +325,7 @@ func update_projects_to_collect() -> void:
 	var params = await http.request_completed
 	var json = JSON.parse_string(params[3].get_string_from_utf8())
 	
-	var results := json["results"] as Array
+	var results := json.get("results", []) as Array
 	if results.size() == 0:
 		print("No projects to collect")
 		updated_projects_to_collect.emit()
@@ -365,7 +381,7 @@ func update_objectives_to_collect() -> void:
 	var params = await http.request_completed
 	var json = JSON.parse_string(params[3].get_string_from_utf8())
 	
-	var results := json["results"] as Array
+	var results := json.get("results", []) as Array
 	if results.size() == 0:
 		print("No Objectives to collect")
 		updated_objectives_to_collect.emit()
@@ -736,7 +752,8 @@ func save_state() -> void:
 	var save_file = FileAccess.open(SAVE_FILE_PATH, FileAccess.WRITE)
 	var data = {
 		"pending_coins": pending_coins,
-		"exp_rewards": exp_rewards
+		"exp_rewards": exp_rewards,
+		"header_secret": header_secret
 	}
 	var json_string = JSON.stringify(data)
 	save_file.store_line(json_string)
@@ -751,7 +768,9 @@ func load_state() -> void:
 	if not parse_result == OK:
 		printerr("JSON Parse Error: ", json.get_error_message(), " in ", json_string, " at line ", json.get_error_line())
 		return
-	var data = json.get_data()
-	pending_coins = data["pending_coins"]
-	for i in data["exp_rewards"]:
-		exp_rewards.append(i)
+	var data = json.get_data() as Dictionary
+	pending_coins = data.get("pending_coins", 0)
+	if data.has("exp_rewards"):
+		for i in data["exp_rewards"]:
+			exp_rewards.append(i)
+	header_secret = data.get("header_secret", "")

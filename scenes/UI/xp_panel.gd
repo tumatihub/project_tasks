@@ -7,6 +7,7 @@ extends PanelContainer
 @export var collect_button: Button
 @export var project_xp_label: Label
 @export var objective_xp_label: Label
+@export var loading_icon: Control
 
 func _ready() -> void:
 	update_footer()
@@ -15,12 +16,14 @@ func _ready() -> void:
 	collect_button.pressed.connect(_on_collect_button_pressed)
 
 func refresh_xp() -> void:
+	loading_icon.visible = true
 	_clear_xp_container()
 	NotionAPI.update_xp_to_collect()
 	await NotionAPI.updated_xp_to_collect
 	
 	if NotionAPI.projects_to_collect.size() == 0 and NotionAPI.objectives_to_collect.size() == 0:
 		update_footer()
+		loading_icon.visible = false
 		return
 	
 	for project in NotionAPI.projects_to_collect:
@@ -47,6 +50,7 @@ func refresh_xp() -> void:
 
 	update_footer()
 	
+	loading_icon.visible = false
 	collect_button.set_disabled(false)
 
 func _clear_xp_container() -> void:
@@ -57,9 +61,11 @@ func _on_refresh_button_pressed() -> void:
 	refresh_xp()
 
 func _on_collect_button_pressed() -> void:
+	loading_icon.visible = true
 	await NotionAPI.collect_all_xp()
 	_clear_xp_container()
 	refresh_xp()
+	loading_icon.visible = false
 	collect_button.set_disabled(true)
 
 func update_footer() -> void:
